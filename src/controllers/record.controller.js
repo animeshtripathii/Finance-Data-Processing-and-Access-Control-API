@@ -15,17 +15,26 @@ const createRecord = async (req, res, next) => {
 };
 const getRecords = async (req, res, next) => {
   try {
-    const { type, category, page = 1, limit = 10 } = req.query;
+    const { type, category, startDate, endDate, page = 1, limit = 10 } = req.query;
     const query = { deletedAt: null };
+    const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNumber = Math.max(parseInt(limit, 10) || 10, 1);
+
     if (type) query.type = type;
     if (category) query.category = category;
-    const startIndex = (page - 1) * limit;
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) query.date.$gte = new Date(startDate);
+      if (endDate) query.date.$lte = new Date(endDate);
+    }
+
+    const startIndex = (pageNumber - 1) * limitNumber;
 
     const records = await Record.find(query)
       .populate('createdBy', 'name email')
       .sort({ date: -1 }) // Sort by newest first
       .skip(startIndex)
-      .limit(parseInt(limit));
+      .limit(limitNumber);
 
     const total = await Record.countDocuments(query);
 
@@ -34,8 +43,8 @@ const getRecords = async (req, res, next) => {
       count: records.length,
       pagination: {
         totalRecords: total,
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
+        currentPage: pageNumber,
+        totalPages: Math.ceil(total / limitNumber),
       },
       data: records,
     });

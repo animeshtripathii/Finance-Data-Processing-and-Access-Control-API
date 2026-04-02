@@ -9,14 +9,23 @@ const generateToken = (id, role) => {
     return jwt.sign({ id, role }, JWT_SECRET_KEY, { expiresIn: JWT_EXPIRES_IN });
 };
 
-const cookieOptions = {
-    httpOnly: true,
-    expires: new Date(Date.now() + 24 * 60 * 60 * 1000), 
+const getCookieOptions = (req) => {
+    const host = req.get('host') || '';
+    const isLocalHost = host.includes('localhost') || host.includes('127.0.0.1');
+    const isSecureRequest = req.secure || req.headers['x-forwarded-proto'] === 'https';
+    const useSecureCookie = !isLocalHost && (process.env.NODE_ENV === 'production' || isSecureRequest);
+
+    return {
+        httpOnly: true,
+        secure: useSecureCookie,
+        sameSite: useSecureCookie ? 'none' : 'lax',
+        expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    };
 };
 
 const registerUser = async (req, res) => {
     try {
-        const { name, email, password, role } = req.body;
+        const { name, email, password } = req.body;
 
         if (!name || !email || !password) {
             return res.status(400).json({ success: false, message: "Please provide all required fields" });
@@ -34,12 +43,12 @@ const registerUser = async (req, res) => {
             name,
             email,
             password: hashedPassword,
-            role: role || 'Viewer'
+            role: 'Viewer'
         });
 
         const token = generateToken(user._id, user.role);
 
-        res.cookie('token', token, cookieOptions);
+        res.cookie('token', token, getCookieOptions(req));
 
         return res.status(201).json({
             success: true,
@@ -63,6 +72,9 @@ const loginUser = async (req, res) => {
         if (!user) {
             return res.status(400).json({ success: false, message: "Invalid email or password" });
         }
+        if (!user.isActive) {
+            return res.status(403).json({ success: false, message: "User is inactive" });
+        }
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
@@ -71,7 +83,7 @@ const loginUser = async (req, res) => {
 
         const token = generateToken(user._id, user.role);
 
-        res.cookie('token', token, cookieOptions);
+        res.cookie('token', token, getCookieOptions(req));
 
         return res.status(200).json({
             success: true,
@@ -83,8 +95,66 @@ const loginUser = async (req, res) => {
     }
 };
 const logoutUser = (req, res) => {
-    res.clearCookie('token', cookieOptions);
+    res.clearCookie('token', getCookieOptions(req));
     return res.status(200).json({ success: true, message: "Logged out successfully" });
 }
 
-module.exports = { registerUser, loginUser,logoutUser };
+const getUsers = async (req, res) => {
+    try {
+        const users = await User.find().select('-password').sort({ createdAt: -1 });
+        return res.status(200).json({ success: true, data: users });
+    } catch (error) {
+        console.error('Error in getUsers:', error);
+        return res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+const updateUserRole = async (req, res) => {
+    try {
+        const { role } = req.body;
+        const { id } = req.params;
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        user.role = role;
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'User role updated successfully',
+            data: { id: user._id, role: user.role }
+        });
+    } catch (error) {
+        console.error('Error in updateUserRole:', error);
+        return res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+const updateUserStatus = async (req, res) => {
+    try {
+        const { isActive } = req.body;
+        const { id } = req.params;
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        user.isActive = isActive;
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'User status updated successfully',
+            data: { id: user._id, isActive: user.isActive }
+        });
+    } catch (error) {
+        console.error('Error in updateUserStatus:', error);
+        return res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+module.exports = { registerUser, loginUser, logoutUser, getUsers, updateUserRole, updateUserStatus };

@@ -52,6 +52,7 @@ MONGO_URI=mongodb://127.0.0.1:27017/zorvyn
 JWT_Secret_Key=your_super_secret_key
 JWT_EXPIRES_IN=1d
 NODE_ENV=development
+
 ```
 
 4. Run the server.
@@ -114,14 +115,37 @@ After deployment:
 
 ## API Endpoints
 
+## Role-Based Access (RBAC)
+
+Role behavior used in this backend:
+
+- Viewer: Can only view dashboard insights.
+- Analyst: Can view records and access dashboard insights.
+- Admin: Can create, update, and delete records, and manage users.
+
+In this project, "insights" means dashboard analytics APIs:
+
+- `GET /api/dashboard/summary`
+- `GET /api/dashboard/recent-activity`
+- `GET /api/dashboard/monthly-trends`
+
+Permissions matrix:
+
+- Viewer: `GET /api/dashboard/*` only
+- Analyst: `GET /api/dashboard/*`, `GET /api/records/getRecord`
+- Admin: Full access to `api/auth` user-management routes + full `api/records` CRUD + `api/dashboard/*`
+
 ### Auth APIs
 
 Base path: `/api/auth`
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
-- `POST /api/auth/logout`
+- `POST /api/auth/logout` (requires auth cookie)
 - `GET /api/auth/me` (requires auth cookie)
+- `GET /api/auth/users` (Admin)
+- `PATCH /api/auth/users/:id/role` (Admin)
+- `PATCH /api/auth/users/:id/status` (Admin)
 
 Register body example:
 
@@ -129,10 +153,11 @@ Register body example:
 {
    "name": "Animesh",
    "email": "animesh@example.com",
-   "password": "StrongPass123!",
-   "role": "Viewer"
+   "password": "StrongPass123!"
 }
 ```
+
+New users are created with `Viewer` role by default.
 
 Login body example:
 
@@ -154,15 +179,27 @@ Base path: `/api/records`
 
 All record routes require authentication.
 
+- `GET /api/records/getRecord` is allowed for `Admin` and `Analyst`.
+- `POST`, `PUT`, `DELETE` record endpoints are allowed for `Admin` only.
+
+Record list filters and pagination (`GET /api/records/getRecord` query params):
+
+- `type=Income|Expense`
+- `category=...`
+- `startDate=2026-01-01`
+- `endDate=2026-12-31`
+- `page=1`
+- `limit=10`
+
 Create record body example:
 
 ```json
 {
-   "title": "Salary",
    "amount": 50000,
-   "type": "income",
+   "type": "Income",
    "category": "Job",
-   "date": "2026-04-01"
+   "date": "2026-04-01T00:00:00.000Z",
+   "notes": "Monthly salary"
 }
 ```
 
@@ -170,7 +207,73 @@ Create record body example:
 
 Base path: `/api/dashboard`
 
-- `GET /api/dashboard/summary` (Admin, Analyst)
+- `GET /api/dashboard/summary` (Viewer, Analyst, Admin)
+- `GET /api/dashboard/recent-activity?limit=10` (Viewer, Analyst, Admin)
+- `GET /api/dashboard/monthly-trends?year=2026` (Viewer, Analyst, Admin)
+
+## Backend-Only Testing
+
+This project has no frontend dependency for evaluation.
+
+- Use Swagger UI: `http://localhost:3000/api-docs`
+- Use Postman collection calls against the same API routes
+- Authentication is cookie-based (`token`), so protected route tests should be done after login
+
+### Suggested Evaluator Flow (Swagger or Postman)
+
+Use two separate sessions:
+
+- Session A: Admin
+- Session B: Analyst/Viewer
+
+1. Register admin candidate using `POST /api/auth/register`.
+2. Register analyst candidate using `POST /api/auth/register`.
+3. Promote one account to Admin in database once for setup (or use an existing Admin account).
+4. Login as Admin with `POST /api/auth/login`.
+5. Verify identity with `GET /api/auth/me` (expected `200`).
+6. Get users with `GET /api/auth/users` (expected `200` for Admin).
+7. Update analyst role using `PATCH /api/auth/users/:id/role` with body:
+
+```json
+{
+   "role": "Analyst"
+}
+```
+
+8. Deactivate analyst using `PATCH /api/auth/users/:id/status` with body:
+
+```json
+{
+   "isActive": false
+}
+```
+
+Expected: analyst login returns `403`.
+
+9. Reactivate analyst with:
+
+```json
+{
+   "isActive": true
+}
+```
+
+10. Login as analyst in Session B.
+11. As Admin, create record using `POST /api/records/addRecord` (expected `201`).
+12. As Analyst, read records using `GET /api/records/getRecord` (expected `200`).
+13. As Analyst, try to create record using `POST /api/records/addRecord` (expected `403`).
+14. As Analyst, call dashboard endpoints (all expected `200`):
+
+- `GET /api/dashboard/summary`
+- `GET /api/dashboard/recent-activity?limit=10`
+- `GET /api/dashboard/monthly-trends?year=2026`
+
+15. As Admin, update and delete record:
+
+- `PUT /api/records/updateRecord/:id` (expected `200`)
+- `DELETE /api/records/deleteRecord/:id` (expected `200`, soft delete)
+
+16. Logout from both sessions with `POST /api/auth/logout`.
 
 ## Notes
 

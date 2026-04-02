@@ -96,7 +96,7 @@ const { createRecord, getRecords, updateRecord, deleteRecord } = require('../con
  */
 
 recordRouter.use(authmiddleware); 
-recordRouter.get('/getRecord', getRecords);
+recordRouter.get('/getRecord', requireRole(['Admin', 'Analyst']), getRecords);
 recordRouter.post('/addRecord', requireRole(['Admin']), validate(recordSchema), 
   createRecord
 );

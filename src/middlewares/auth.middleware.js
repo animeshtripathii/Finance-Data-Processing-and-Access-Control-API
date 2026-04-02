@@ -13,6 +13,9 @@ const authmiddleware=async(req,res,next)=>{
     if(!userData){
         return res.status(401).json({success:false,message:"Unauthorized"});
     }
+    if(!userData.isActive){
+      return res.status(403).json({success:false,message:"User is inactive"});
+    }
     req.user=userData;
     next();
   }catch(error){
