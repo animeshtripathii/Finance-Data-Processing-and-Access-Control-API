@@ -89,6 +89,29 @@ Open API docs in browser:
 http://localhost:3000/api-docs
 ```
 
+## Deploy On Render (Backend)
+
+This backend is ready for Render deployment.
+
+1. Push this `Backend` folder to GitHub.
+2. In Render, click New + and choose Blueprint.
+3. Select your GitHub repository.
+4. Render will detect [render.yaml](render.yaml) and create the web service.
+5. Set the required secret env vars in Render:
+
+```env
+MONGO_URI=your_mongodb_connection_string
+JWT_Secret_Key=your_jwt_secret
+API_BASE_URL=https://your-render-service-name.onrender.com
+```
+
+6. Deploy.
+
+After deployment:
+
+- API base URL: `https://your-render-service-name.onrender.com`
+- Swagger docs: `https://your-render-service-name.onrender.com/api-docs`
+
 ## API Endpoints
 
 ### Auth APIs

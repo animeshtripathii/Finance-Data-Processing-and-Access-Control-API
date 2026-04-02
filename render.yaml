@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: finance-data-processing-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_Secret_Key
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      - key: API_BASE_URL
+        sync: false
