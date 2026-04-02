@@ -34,6 +34,34 @@ const { createRecord, getRecords, updateRecord, deleteRecord } = require('../con
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - amount
+ *               - type
+ *               - category
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 example: 2500
+ *               type:
+ *                 type: string
+ *                 enum: [Income, Expense]
+ *                 example: Income
+ *               category:
+ *                 type: string
+ *                 example: Salary
+ *               date:
+ *                 type: string
+ *                 format: date-time
+ *                 example: 2026-04-02T00:00:00.000Z
+ *               notes:
+ *                 type: string
+ *                 example: April salary credited
+ *           example:
+ *             amount: 2500
+ *             type: Income
+ *             category: Salary
+ *             date: 2026-04-02T00:00:00.000Z
+ *             notes: April salary credited
  *     responses:
  *       201:
  *         description: Record created
@@ -63,6 +91,27 @@ const { createRecord, getRecords, updateRecord, deleteRecord } = require('../con
  *         application/json:
  *           schema:
  *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 example: 2800
+ *               type:
+ *                 type: string
+ *                 enum: [Income, Expense]
+ *                 example: Income
+ *               category:
+ *                 type: string
+ *                 example: Salary
+ *               date:
+ *                 type: string
+ *                 format: date-time
+ *                 example: 2026-04-03T00:00:00.000Z
+ *               notes:
+ *                 type: string
+ *                 example: Updated salary entry
+ *           example:
+ *             amount: 2800
+ *             notes: Updated salary entry
  *     responses:
  *       200:
  *         description: Record updated
